@@ -2,7 +2,11 @@
 title: "C2 - Term Project - NYSE"
 author: "Son Nam Nguyen"
 date: "`r format(Sys.time(), '%d %B %Y')`"
-output: html_document
+output:
+  prettydoc::html_pretty:
+  toc: true
+  theme: architect
+  highlight: github
 ---
 
 ## Setup
@@ -17,42 +21,100 @@ if (!require("pacman")) {
 pacman::p_load(tidyverse, rvest, data.table,
                xml2, stringr, logger)
 
+rooturl <- 'http://eoddata.com/stocklist/NYSE/'
 ```
 
-## Get Data
+## Get One Page
 
 ```{r get data}
 
-url <- 'http://eoddata.com/stocklist/NYSE/A.htm'
-
 get_one_page <- function(url){
-  
-  logger::log_info('Parse URL')
   
   t <- read_html(url)
   
   logger::log_info('URL parsed')
   
-  #init empty dataframe
+  #init empty list
   mydata <- list()
   
-  logger::log_info('Initialized empty DF')
-  
+  tryCatch(
+    {
+      for (i in 1:9){
+      mydata[[i]] <- t %>% 
+        html_nodes(paste0('#ctl00_cph1_divSymbols td:nth-child(',i,')')) %>% html_text() %>% list()
+      }
+      logger::log_info("Got all the columns!")
+    },
+    error = function(e){
+        stop("Couldn't get all the columns.")
+    }
+  )
   #loop through columns of the table and append
-  for (i in 1:9){
-  mydata[[i]] <- t %>% 
-    html_nodes(paste0('#ctl00_cph1_divSymbols td:nth-child(',i,')')) %>% html_text() %>% list()
-  }
   
   df <- data.frame(mydata)
   
-  logger::log_info('One page appended')
-  
-  colnames(df) <- c('code', 'name', 'high', 'low', 'close', 'volume', 'change', 'direction', 'price')
+  logger::log_info('Dataframe formed')
   
   return(df)
 }
 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+# Get Fundamentals Table
+
+```{r urls, message=F, warning=F}
+
+get_all <- function(){
+  
+  start.time <- Sys.time()
+  
+  #init empty list of urls
+  urls <- list()
+  
+  #generate urls for pages
+  for (i in 1:length(letters)){
+    urls[[i]] <- paste0(rooturl,letters[i],".htm")
+  }
+  
+  logger::log_info('URLs generated!')
+  
+  #get all and bind it together
+  nyse <- rbindlist(lapply(urls, get_one_page))
+  
+  logger::log_info('Got all the data!')
+  
+  end.time <- Sys.time()
+  time.taken <- end.time - start.time
+  print(time.taken)
+  
+  return(nyse)
+}
+
+nyse_raw <- get_all()
+
+```
+# Data Cleaning
+
+```{r transform}
+
+#rename columns
+colnames(nyse_raw) <- c('code', 'name', 'high', 'low', 'close', 'volume', 'change', 'direction', 'price')
+
+#cleanup thousand separators, and cast
+nyse <- nyse_raw %>%
+          select(-c("direction")) %>%
+          mutate_all(funs(gsub(",", "", .)), select(., high:price)) %>%
+          mutate(high = as.numeric(high),
+                 low = as.numeric(low),
+                 close = as.numeric(close),
+                 change = round(as.numeric(change), 2),
+                 volume = as.integer(volume),
+                 price = as.numeric(price))
+
+```
+
+# Visualizations
+
+```{r dataviz}
+
+```
