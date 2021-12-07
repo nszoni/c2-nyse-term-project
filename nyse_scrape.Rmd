@@ -1,0 +1,58 @@
+---
+title: "C2 - Term Project - NYSE"
+author: "Son Nam Nguyen"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: html_document
+---
+
+## Setup
+
+```{r pacman, echo=F, message=F}
+
+# Loading packages with pacman
+if (!require("pacman")) {
+  install.packages("pacman")
+}
+
+pacman::p_load(tidyverse, rvest, data.table,
+               xml2, stringr, logger)
+
+```
+
+## Get Data
+
+```{r get data}
+
+url <- 'http://eoddata.com/stocklist/NYSE/A.htm'
+
+get_one_page <- function(url){
+  
+  logger::log_info('Parse URL')
+  
+  t <- read_html(url)
+  
+  logger::log_info('URL parsed')
+  
+  #init empty dataframe
+  mydata <- list()
+  
+  logger::log_info('Initialized empty DF')
+  
+  #loop through columns of the table and append
+  for (i in 1:9){
+  mydata[[i]] <- t %>% 
+    html_nodes(paste0('#ctl00_cph1_divSymbols td:nth-child(',i,')')) %>% html_text() %>% list()
+  }
+  
+  df <- data.frame(mydata)
+  
+  logger::log_info('One page appended')
+  
+  colnames(df) <- c('code', 'name', 'high', 'low', 'close', 'volume', 'change', 'direction', 'price')
+  
+  return(df)
+}
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
