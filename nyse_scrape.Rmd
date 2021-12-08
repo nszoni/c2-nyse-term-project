@@ -1,5 +1,5 @@
 ---
-title: "C2 - Term Project - NYSE"
+title: "C2 - Term Project - stocklist"
 author: "Son Nam Nguyen"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
@@ -22,6 +22,7 @@ pacman::p_load(tidyverse, rvest, data.table,
                xml2, stringr, logger)
 
 rooturl <- 'http://eoddata.com/stocklist/NYSE/'
+
 ```
 
 ## Get One Page
@@ -60,11 +61,11 @@ get_one_page <- function(url){
 
 ```
 
-# Get Fundamentals Table
+# Get Ticker Table
 
 ```{r urls, message=F, warning=F}
 
-get_all <- function(){
+get_all_stock <- function(rooturl){
   
   start.time <- Sys.time()
   
@@ -79,7 +80,7 @@ get_all <- function(){
   logger::log_info('URLs generated!')
   
   #get all and bind it together
-  nyse <- rbindlist(lapply(urls, get_one_page))
+  stocklist <- rbindlist(lapply(urls, get_one_page))
   
   logger::log_info('Got all the data!')
   
@@ -87,18 +88,67 @@ get_all <- function(){
   time.taken <- end.time - start.time
   print(time.taken)
   
-  return(nyse)
+  return(stocklist)
 }
 
-nyse_raw <- get_all()
+stocklist_raw <- get_all_stock(rooturl)
+
+#rename columns
+colnames(stocklist_raw) <- c('code', 'name', 'high', 'low', 'close', 'volume', 'change', 'direction', 'price')
 
 ```
+
+# Get Fundamentals tables
+
+```{r}
+
+rooturl2 <- 'https://eoddata.com/stockquote/NYSE/'
+
+colnames <- c("sector", "industry", "pe_ratio", "peg_ratio", "eps", "divyield", "ptb", "pts", "ebitda", "shares", "market_cap", "52wk_range")
+
+tickers <- stocklist_raw[["code"]]
+
+get_all_fundamentals <- function(tickers){
+  
+  start.time <- Sys.time()
+  
+  #init empty dataframe
+  fundamentals <- NULL
+  
+  #get fundamentals for list of tickers
+  for (i in 1:length(tickers)){
+    subpage <- paste0(rooturl2,tickers[i],".htm")
+    f <- read_html(subpage)
+    values <- f %>% html_nodes('#ctl00_cph1_divFundamentals td:nth-child(2)') %>% html_text()
+    fundamentals <- rbind(fundamentals, data.frame(matrix(unlist(values), ncol=length(values), byrow=F)))
+    logger::log_info("Got table for ticker {tickers[i]}!")
+  }
+  
+  colnames(fundamentals) <- colnames
+  
+  end.time <- Sys.time()
+  time.taken <- end.time - start.time
+  print(time.taken)
+  
+  return(fundamentals)
+  
+}
+
+fundamentals <- get_all_fundamentals(tickers)
+
+```
+
+# Merge tables
+
+```{r merge}
+
+nyse_raw <- cbind(stocklist, fundamentals)
+
+```
+
 # Data Cleaning
 
 ```{r transform}
-
-#rename columns
-colnames(nyse_raw) <- c('code', 'name', 'high', 'low', 'close', 'volume', 'change', 'direction', 'price')
 
 #cleanup thousand separators, and cast
 nyse <- nyse_raw %>%
