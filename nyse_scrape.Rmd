@@ -108,6 +108,19 @@ colnames <- c("sector", "industry", "pe_ratio", "peg_ratio", "eps", "divyield", 
 
 tickers <- stocklist_raw[["code"]]
 
+#download all subpages for tickers
+for (i in 1:length(tickers)){
+  if (!file.exists(paste0("htmls/",tickers[i],".htm"))){
+      url <- paste0(rooturl2,tickers[i],".htm")
+      download.file(url, destfile = paste0('htmls/',tickers[i],'.htm'), quiet = T)
+      logger::log_info("Stock {tickers[i]} HTML downloaded")
+  }else{
+    logger::log_info("Page are already downloaded, skipping.")
+  }
+}
+
+#zip-unzip
+
 get_all_fundamentals <- function(tickers){
   
   start.time <- Sys.time()
@@ -117,7 +130,7 @@ get_all_fundamentals <- function(tickers){
   
   #get fundamentals for list of tickers
   for (i in 1:length(tickers)){
-    subpage <- paste0(rooturl2,tickers[i],".htm")
+    subpage <- paste0("htmls/",tickers[i],".htm")
     f <- read_html(subpage)
     values <- f %>% html_nodes('#ctl00_cph1_divFundamentals td:nth-child(2)') %>% html_text()
     fundamentals <- rbind(fundamentals, data.frame(matrix(unlist(values), ncol=length(values), byrow=F)))
