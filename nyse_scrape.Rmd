@@ -13,6 +13,8 @@ output:
 
 ```{r pacman, echo=F, message=F}
 
+setwd("~/Desktop/repos/c2-nyse-term-project")
+
 # Loading packages with pacman
 if (!require("pacman")) {
   install.packages("pacman")
@@ -77,7 +79,7 @@ get_all_stock <- function(rooturl){
     urls[[i]] <- paste0(rooturl,letters[i],".htm")
   }
   
-  logger::log_info('URLs generated!')
+  logger::log_info('URLs generated for page {letters[i]}!')
   
   #get all and bind it together
   stocklist <- rbindlist(lapply(urls, get_one_page))
@@ -100,7 +102,7 @@ colnames(stocklist_raw) <- c('code', 'name', 'high', 'low', 'close', 'volume', '
 
 # Get Fundamentals tables
 
-```{r}
+```{r, message=F, warning=F}
 
 rooturl2 <- 'https://eoddata.com/stockquote/NYSE/'
 
@@ -108,7 +110,8 @@ colnames <- c("sector", "industry", "pe_ratio", "peg_ratio", "eps", "divyield", 
 
 tickers <- stocklist_raw[["code"]]
 
-#download all subpages for tickers
+#download all subpages for tickers incrementally
+
 for (i in 1:length(tickers)){
   if (!file.exists(paste0("htmls/",tickers[i],".htm"))){
       url <- paste0(rooturl2,tickers[i],".htm")
@@ -155,7 +158,10 @@ fundamentals <- get_all_fundamentals(tickers)
 
 ```{r merge}
 
-nyse_raw <- cbind(stocklist, fundamentals)
+nyse_raw <- cbind(stocklist_raw, fundamentals)
+
+#write to csv
+write.csv(nyse_raw, 'nyse_raw.csv')
 
 ```
 
@@ -164,7 +170,7 @@ nyse_raw <- cbind(stocklist, fundamentals)
 ```{r transform}
 
 #cleanup thousand separators, and cast
-nyse <- nyse_raw %>%
+nyse_clean <- nyse_raw %>%
           select(-c("direction")) %>%
           mutate_all(funs(gsub(",", "", .)), select(., high:price)) %>%
           mutate(high = as.numeric(high),
