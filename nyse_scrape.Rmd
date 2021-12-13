@@ -21,7 +21,7 @@ if (!require("pacman")) {
 }
 
 pacman::p_load(tidyverse, rvest, data.table,
-               xml2, stringr, logger)
+               xml2, stringr, logger, heatmaply)
 
 rooturl <- 'http://eoddata.com/stocklist/NYSE/'
 
@@ -161,29 +161,103 @@ fundamentals <- get_all_fundamentals(tickers)
 nyse_raw <- cbind(stocklist_raw, fundamentals)
 
 #write to csv
-write.csv(nyse_raw, 'nyse_raw.csv')
+write.csv(nyse_raw, 'nyse_raw.csv', row.names=FALSE)
+
+#read csv
+nyse_raw <- read.csv("nyse_raw.csv", sep = ',')
 
 ```
 
 # Data Cleaning
 
-```{r transform}
+```{r transform, warnings=F}
+
+#fix number formatting
+formatter <- function(col){
+  num <- gsub('B', 'e3', col)
+  num <- gsub('M', '', num)
+  num <- gsub('K', 'e-3', num)
+  format(as.numeric(num), scientific = FALSE, big.mark = ",")
+}
+
+#transform to million
+cols <- c("ebitda", "shares", "market_cap")
+nyse_raw[cols] <- lapply(nyse_raw[cols], formatter)
 
 #cleanup thousand separators, and cast
 nyse_clean <- nyse_raw %>%
           select(-c("direction")) %>%
           mutate_all(funs(gsub(",", "", .)), select(., high:price)) %>%
+          separate(X52wk_range, c('52wk_range_low', '52wk_range_high'), sep = " - ") %>% 
           mutate(high = as.numeric(high),
                  low = as.numeric(low),
                  close = as.numeric(close),
                  change = round(as.numeric(change), 2),
-                 volume = as.integer(volume),
-                 price = as.numeric(price))
+                 volume = as.integer(volume)/10^6,
+                 price = as.numeric(price),
+                 pe_ratio = round(as.numeric(pe_ratio), 2),
+                 peg_ratio = round(as.numeric(peg_ratio), 2),
+                 eps = round(as.numeric(eps), 2),
+                 divyield = round(as.numeric(divyield)/100, 2),
+                 ptb = round(as.numeric(ptb), 2),
+                 pts = round(as.numeric(pts), 2),
+                 ebitda = round(as.numeric(ebitda), 2),
+                 shares = round(as.numeric(shares), 2),
+                 market_cap = round(as.numeric(market_cap), 2),
+                 `52wk_range_low` = as.numeric(`52wk_range_low`),
+                 `52wk_range_high` = as.numeric(`52wk_range_high`))
+         
+nyse_clean[nyse_clean == ""] <- NA
 
 ```
 
 # Visualizations
 
 ```{r dataviz}
+
+#corrplot
+#corr <- nyse_clean %>% select(c("volume", "price", "eps", "divyield", "ebitda", "shares", "market_cap")) %>% na.omit() %>% cor() %>% round(1)
+
+#sectors with the largest market cap
+nyse_clean %>% 
+  na.omit() %>% 
+  arrange(desc(market_cap)) %>%
+  slice(1:5) %>%
+  ggplot() +
+    geom_col(aes(reorder(sector, market_cap), market_cap, fill = sector)) +
+  theme_bw() +
+  coord_flip() +
+  labs(title = "Sectors with the largest market cap (M)",
+       y = "Market Cap",
+       x = "",
+       caption = "Source: eoddata.com") +
+  scale_fill_viridis_d(name = "Sector")
+
+#stocks with the most volume
+nyse_clean %>% 
+  arrange(desc(volume)) %>%
+  slice(1:5) %>%
+  ggplot() +
+    geom_col(aes(reorder(code, volume), volume), fill = "firebrick2", color = "firebrick4") +
+  theme_bw() +
+  coord_flip() +
+  labs(title = "Stocks with the most volume (M)",
+       y = "Volume",
+       x = "",
+       caption = "Source: eoddata.com")
+
+#stocks with the largest dividents
+nyse_clean %>% 
+  arrange(desc(divyield)) %>%
+  slice(1:5) %>%
+  ggplot() +
+    geom_col(aes(reorder(code, divyield), divyield), fill = "firebrick2", color = "firebrick4") +
+  theme_bw() +
+  coord_flip() +
+  labs(title = "Stocks with the largest divident yields",
+       y = "Yield",
+       x = "",
+       caption = "Source: eoddata.com") +
+  scale_y_continuous(labels=scales::percent)
 
 ```
