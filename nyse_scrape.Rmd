@@ -1,26 +1,29 @@
 ---
-title: "C2 - Term Project - NYSE Scraping and Analysis"
-author: "Son . Nguyen"
+title: "NYSE Scraping and Analysis"
+subtitle: "C2 - Term Project"
+author: "Son N. Nguyen"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
-  prettydoc::html_pretty:
-  toc: true
-  theme: architect
-  highlight: github
+  rmdformats::downcute:
+    self_contained: true
+    lightbox: true
+    gallery: false
+    highlight: tango
+    code_folding: hide
 ---
 
 ```{r, echo=F}
-knitr::opts_chunk$set(fig.align = "center", warning = FALSE, message = FALSE) 
+knitr::opts_chunk$set(fig.align = "center", warning = FALSE, message = FALSE, fig.width=12, fig.height=8) 
 ```
 
 ## Introduction
 
-*All the display, and data in my report represent the state of NYSE after closing on 14 Dec 2021.*
+*All the displays and data in my report represent the state of NYSE after closing on 14 Dec 2021.*
 
-For this project, my subject was scraping and analyzing the stocks included in the NYSE.
-My used source was [Eoddata](http://eoddata.com/symbols.aspx), and I used the GadgetSelector tool along with the studied methods to scrape html for my work as the page didn't have an accessible API from which I could have extracted the JSON object of each table.
+My topic for this research was scraping and analyzing the equities listed on the New York Stock Exchange. 
+I utilized [Eoddata](http://eoddata.com/symbols.aspx) as my source, and I scraped HTML for my work using the GadgetSelector tool and the researched methods because the page didn't have an accessible API from which I could have extracted the JSON object of each table.
 
-**Note: The full script used for this project can be found under my [Github repo](https://github.com/nszoni/c2-nyse-term-project), which includes everything which makes the workflow reproducible.**
+**Note: The full script used for this project can be found under my [Github repo](https://github.com/nszoni/c2-nyse-term-project), which includes everything needed to reproduce the workflow here.**
 
 ```{r setup, include=F}
 
@@ -32,15 +35,17 @@ if (!require("pacman")) {
 }
 
 pacman::p_load(tidyverse, rvest, data.table,
-               xml2, stringr, logger, heatmaply)
+               xml2, stringr, logger, rmdformats)
 
 rooturl <- 'http://eoddata.com/stocklist/NYSE/'
 
 ```
 
-## Get One Page
+## Scraping the EODDATA
 
-Firstly, somehow I needed to write a function to get one page of the ABC, and which I can apply on all the other pages with `lapply`. The function below does the following in short: (1) Parses the given website URL, (2) iterates through all the columns of the current page and stores it in an initialized list, (3) constructs a dataframe from the list (+1) does it all with logging for debugging purposes.
+### Get One Page
+
+To begin, I needed to develop a function to get one page of the ABC, which I could then use with 'lapply' to apply to all the other pages. In a nutshell, the function below does the following: **(1) parses the provided website URL, (2) iterates through all the columns of the current page and puts them in an initialized list, (3) creates a data frame from the list** (+1) all with debugging logging.
 
 ```{r get data}
 
@@ -76,11 +81,11 @@ get_one_page <- function(url){
 
 ```
 
-# Get Ticker Table
+### Get Ticker Table
 
-Next, I needed to apply the function written in previously to all letters of the english ABC to get every listed symbols on the website. For that, I wrote a function which generates URLs for all the pages, and applies the one-page-getter function, then binds all the pages together as a one unified dataframe. 
+To retrieve every listed symbol on the page, I needed to apply the previously stated function to all letters of the English ABC. To do this, I created a function that generates URLs for all of the pages, applies the one-page-getter function, and then binds all of the pages together as a single data frame.
 
-**This took about 50 second to get them all**
+**This took about 50 seconds to get them all.**
 
 ```{r urls, message=F, warning=F, results='hide', eval = FALSE}
 
@@ -132,11 +137,13 @@ if (!file.exists("htmls/")){
 
 ```
 
-# Get Fundamentals tables
+### Get Fundamentals tables
 
-My next objective was to get all the "Fundamentals" tables in each stock subpage, therefore, I needed to somehow generate the subpage of each ticker and get the whole table as a list, append it as a row to a dataframe incremntally. Understanding that, I did exactly what I needed to do and pasted together a rooturl and all the ticker codes which happened to be enough to get the pages. 
+My next goal was to obtain all of the "Fundamentals" tables from each stock subpage, thus I needed to **generate the subpage URL for each ticker and obtain the entire table as a list, then incrementally append it as a row to a data frame**. Knowing this, I did exactly what I needed to do and pasted together a root URL and all of the ticker numbers, which was sufficient to obtain the pages.
 
-Getting into those pages and extracting the necessary information, I stumbled upon an issue which quickly changed my approach. The problem was that if I tried to request every subpage and table of nearly 4,000 tickers, I got a response of timeout. Thus, I downloaded each subpage and iterated through those local files which happened to be more efficient having them locally. The written for loop checks if the page for a ticker was already downloaded locally, if so, skips the download, otherwise just gets it from the parsed URL.
+When I first started looking through those pages and extracting the information I needed, I ran across a problem that forced me to rethink my strategy. The issue was that if I tried to request each of the almost 4,000 subpages and tables, I received a timeout response. As a result, **I downloaded all of the subpages and iterated over those local files, which were more efficient to have on hand**. If the page for a ticker has already been downloaded locally, the written for loop avoids the download; otherwise, it obtains it from the parsed URL.
+
+Another potential difficulty was that the stocks listed on the **NYSE** are updated often (new IPOs are announced on a daily basis), therefore I needed a script to add the missing fundamental tables based on the scraped list of tickers. Please note that while new stock is added incrementally, so we don't have to update every record when executing the script; however, previously downloaded stock pages become stale, and we must download them again to update them. One disadvantage of the gradual upgrade is that it saves time rather than having to download all of the pages from scratch, which takes hours.
 
 ```{r, message=F, warning=F, eval = FALSE, echo=F}
 
@@ -160,7 +167,7 @@ for (i in 1:length(tickers)){
 
 ```
 
-Moving onto extracting the fundamentals, I iterated through the list of htm files in my working folder and flatted out the table of each stock as a row, then binded together every row, incrementally. Having both the main symbols table for every ticker in one dataframe, and all the fundamental tables, finally, I could merged them together, which essentially resulted in my raw NYSE dataset.
+Moving on to extracting the essentials, I iterated over the list of.htm files in my working folder, flattening out each stock's table as a row, then incrementally binding each row together. **With both the main symbols table for each ticker and all the fundamental tables in one data frame, I was finally able to merge them, resulting in my raw NYSE dataset**.
 
 ```{r, eval=F}
 
@@ -206,11 +213,16 @@ nyse_raw <- read.csv("nyse_raw.csv", sep = ',')
 
 ```
 
-# Data Cleaning
+### Data Cleaning
 
 Arriving to data cleaning, I did the following changes:
 
 1. Standardize number formatting for numbers like 1.1B, 1.1M, 1.1K to display million values.
+2. Separate the `X52_week_range` column displaying an interval to two separate columns with the lower and upper bound.
+3. Change formatting of relative changes in prices so that it reflects the direction (multiply with -1 if the absolute change below zero)
+4. Cast and apply rounding for each column
+5. Replace empty strings with NAs
+6. **Drop warrants and all other option-like abstractions** which were not comparable to standard stocks
 
 ```{r formatting}
 
@@ -226,14 +238,6 @@ formatter <- function(col){
 cols <- c("ebitda", "shares", "market_cap")
 nyse_raw[cols] <- lapply(nyse_raw[cols], formatter)
 
-```
-
-2. Separate the `X52_week_range` column displaying an interval to two separate columns with the lower and upper bound.
-3. Change formatting of relative changes in prices so that it reflects the direction (multiply with -1 if the absolute change below zero)
-4. Cast and apply rounding for each column
-5. Replace empty strings with NAs
-
-```{r casting}
 #cleanup thousand separators, and cast
 nyse_clean <- nyse_raw %>%
           mutate_all(funs(gsub(",", "", .)), select(., high:X52wk_range)) %>%
@@ -260,15 +264,25 @@ nyse_clean <- nyse_raw %>%
          
 nyse_clean[nyse_clean == ""] <- NA
 
+#drop warrants and all other abstractions which are not standard stocks
+nyse_clean <- nyse_clean[!grepl("\\[", nyse_clean$name),]
+nyse_clean <- nyse_clean[!grepl(".W", nyse_clean$code),]
+
 ```
 
-# NYSE Analysis
+## NYSE Analysis
 
 Since the data in nature of itself was cross-sectional not time series, it restricted my options during the visualization. 
 
-First, I looked at sectors having the largest market cap in the NYSE. The Energy sector took the crown with a total market cap of over $800B, followed by Technology and Finance. This could be explained with the theory that renewable energy and oil has a growing demand in our civilization. Technology plays huge part in the digitization in the pandemic, while Finance is still needed as before.
+### Market Capitalization 
 
-```{r dataviz, echo=F}
+First, I looked at the NYSE sectors with the biggest market capitalization. 
+
+**With a total market valuation of almost $800 billion, the Energy sector won the top spot, followed by Technology and Finance**. This could be explained by the assumption that our civilization's desire for renewable energy and oil is increasing. Technology plays a significant role in the digitization of the pandemic, but finance is still required. 
+
+<br>
+
+```{r dataviz}
 
 #sectors with the largest market cap
 nyse_clean %>% select(c('sector', 'market_cap')) %>%  
@@ -286,10 +300,15 @@ nyse_clean %>% select(c('sector', 'market_cap')) %>%
   scale_fill_viridis_d(name = "Sector")
 
 ```
+<br>
 
-Second, I was also curious about which industries are in the top performers in terms of gains today. In overall, the Telecommunications industry had over 15% gain in total which was double the EDP services coming in second in the ranking, closely followeb by Electronic Distribution. Again, these displays reflect how COVID have impacted the daily activites on the market, as there is a growing demand in (1) "staying connected and online" through telecommunications, (2) delivering services (EDP), and (3) digitalization via electronics distribution.
+### Industry Gains
 
-```{r, echo=F}
+Second, I was wondering as to which industries are now outperforming others in terms of gains. Overall, the **Telecommunications industry** increased by over 15%, which was more than double the EDP services, which came in second place, closely followed by Electronic Distribution**. Again, these displays show how COVID has changed daily life on the island.
+
+<br>
+
+```{r}
 
 #Best Performing Industries
 nyse_clean %>% filter(!is.na(industry)) %>% 
@@ -306,11 +325,16 @@ nyse_clean %>% filter(!is.na(industry)) %>%
   scale_y_continuous(labels=scales::percent)
 
 ```
-Third, I wanted to see the distribution of advancers and decliners in each sector. The below chart indicates that in the Utilities and Metal sector, all stocks were in decline on the day of my analysis with no exception. The former is a bit counterintuitive in a sense that it is a non-cyclical sector, and a downtrend usually observable when the economy performs well (which is highly unlikely in the current times). 
+<br>
 
-In contrast to that, Funeral services, and Cement-Concrete stocks were all going up. These phenomenas can be partly explained by the fact that the Utilities sector is highly cyclical, thus follows the current economy decline due to COVID19. The demand for funeral services may go up as well because of the increasing death rates as new variants of the virus starts to appear. Other patterns are also emerging, for example the decline in the transportation sector, where again, the virus has imposed restrictive measure on the border, and lower demand for travelling in general
+### Sector Advancers and Decliners
 
-```{r, echo=F}
+Third, I wanted to observe how each sector's advancers and decliners were distributed. The figure below shows that on the day of my analysis, all stocks in the **Utilities and Metals sector** were in decline. The former is a bit counter-intuitive in that it is a non-cyclical industry, and when the economy is doing well, a downturn is usually seen (which is highly unlikely in the current times). 
+
+In contrast, we can see a **smaller share of advancers** in the Finance and Industrial Goods industries. Other patterns are appearing, such as a drop in the transportation industry, where the virus has imposed border restrictions once again, and lower demand for travel in general. To summarize, market sentiment is negative, and all industries have been impacted by the present economic downturn.
+
+
+```{r}
 
 #Sector Sentiments
 nyse_clean %>% filter(!is.na(sector)) %>% 
@@ -326,10 +350,13 @@ ggplot(aes(fill=direction, x=sector)) +
   coord_flip()
 
 ```
+<br>
 
-Regarding the comparison of individual stocks, I assembled a chart which shows stocks having the most activity in the current day. Among the tops, we can recognize Ford (F), and AMC Entertainment (AMC), which is not surprising considering that these are relatively cheap and Reddit fuelled "meme-stocks". Also, AT&T (T) and Pfizer (PFE) appear there which are both driven by the current demand for these products in the pandemic.
+### Most Active Stocks
 
-```{r, echo=F}
+In terms of individual stock comparisons, I put together a chart that shows the stocks with the highest activity on the current day. **We can detect Ford (F) and AMC Entertainment (AMC) among the leaders, which is unsurprising given that these are low-cost, Reddit-fueled "meme-stocks." **Also, AT&T (T) and Pfizer (PFE)** appear there, both of which are fueled by the pandemic's present need for these items.
+
+```{r}
 
 #stocks with the most volume
 nyse_clean %>% 
@@ -345,12 +372,15 @@ nyse_clean %>%
        caption = "Source: eoddata.com")
 
 ```
-People in finance define stocks having a large dividend yield as "Growth Stocks". Companies which are at the peak of the marginal product curve and are not able to expand that much. Those who are looking to invest in these stock prefer price stability over larger possible gains. I wanted to show which are the stocks in NYSE which offer the largest cut from the price to their shareholders. Result indicate that  
-RiverNorth Specialty Finance Corporation CF (RSF) tops the chart, followed by Trane Technologies PLC (TT) tied with Entravision Communications Corp (EVC).
+<br>
 
-```{r, echo=F}
+### Growh Stocks
 
-#stocks with the largest dividends
+Stocks with a high dividend yield are referred to as "Growth Stocks" by financial professionals. Businesses that have reached the apex of the marginal product curve and are unable to expand significantly. Price stability is preferred by those wishing to invest in these equities above higher potential returns. I intended to highlight which NYSE stocks provide the greatest (relative) dividends to their shareholders. **RiverNorth Specialty Finance Corporation CF (RSF) is at the top of the list, followed by Trane Technologies PLC (TT) and Entravision Communications Corp (EVC)**.
+
+```{r}
+
+#stocks with the largest dividend yields
 nyse_clean %>% 
   arrange(desc(divyield)) %>%
   slice(1:5) %>%
@@ -365,11 +395,14 @@ nyse_clean %>%
   scale_y_continuous(labels=scales::percent)
 
 ```
+<br>
 
-Lastly, we may want to look at the top gainers and losers today,
+### Top Gainers and Losers
+
+Finally, let's take a look at today's top gainers and losers. **Terminix Global Holdings Inc (TMX), which provides residential and commercial services, and BigBear.ai Holdings Inc (BBAI), which specializes in mergers and acquisitions, were the best-performing stocks on 14 December, with price increases greater than 15%**. 
 
 
-```{r, echo=F}
+```{r}
 
 #Top Gainers
 nyse_clean %>% 
@@ -386,8 +419,13 @@ nyse_clean %>%
   scale_y_continuous(labels=scales::percent)
 
 ```
+<br>
 
-```{r, echo=F}
+Moving on to the losers of the day, **Navios Maritime Holdings Inc. (NM), a company responsible for overseas logistics, closed at the bell with a loss of more than 25%, followed by Planet Labs (a result of a SPAC initiative from dMY Technologies) and Oscar Health (OSCR), a private insurance company**. We can infer patterns that are sensitively determined by the restrictions and hardship imposed by the pandemic's upward trending infection rates.
+
+<br>
+
+```{r}
 
 #Top Losers
 nyse_clean %>% 
@@ -407,4 +445,4 @@ nyse_clean %>%
 
 # Conclusion
 
-Behind all the visualizations, we are able to gauge information about the current economy.
+To sum up, we can deduce information about the current economy from all of the visuals I gave. The rapidly spreading Omnicron variant and the rapidly declining numbers of the epidemic appear to have placed pessimism on the NYSE as well. Companies involved in the creation of vaccinations are thriving, whereas transportation and logistical services are lagging. In terms of sectors and industries, they continue to adapt to the expanding demands of digitization, with Technology and Telecommunications essentially leading the market. Aside from that, "meme-stocks" continue to be in great demand in terms of activity.
