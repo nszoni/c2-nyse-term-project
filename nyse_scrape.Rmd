@@ -21,13 +21,15 @@ knitr::opts_chunk$set(fig.align = "center", warning = FALSE, message = FALSE, fi
 *All the displays and data in my report represent the state of NYSE after closing on 14 Dec 2021.*
 
 My topic for this research was scraping and analyzing the equities listed on the New York Stock Exchange. 
-I utilized [Eoddata](http://eoddata.com/symbols.aspx) as my source, and I scraped HTML for my work using the GadgetSelector tool and the researched methods because the page didn't have an accessible API from which I could have extracted the JSON object of each table.
+I utilized [Eoddata](http://eoddata.com/symbols.aspx) as my source, and I scraped HTML for my work using the GadgetSelector tool and the methods used in class, because the page didn't have an accessible API from which I could have extracted the JSON object of each table.
 
 **Note: The full script used for this project can be found under my [Github repo](https://github.com/nszoni/c2-nyse-term-project), which includes everything needed to reproduce the workflow here.**
 
+>My advice is to clone the repository if you want the run the script.
+
 ```{r setup, include=F}
 
-setwd("~/Desktop/repos/c2-nyse-term-project")
+#setwd("~/Desktop/repos/c2-nyse-term-project")
 
 # Loading packages with pacman
 if (!require("pacman")) {
@@ -83,7 +85,7 @@ get_one_page <- function(url){
 
 ### Get Ticker Table
 
-To retrieve every listed symbol on the page, I needed to apply the previously stated function to all letters of the English ABC. To do this, I created a function that generates URLs for all of the pages, applies the one-page-getter function, and then binds all of the pages together as a single data frame.
+To retrieve every listed symbol on the page, I needed to apply the previously stated function to all letters of the English ABC. To do this, I created another function that generates URLs for all of the pages, applies the one-page-getter function, and then binds all of the pages together as a single data frame.
 
 **This took about 50 seconds to get them all.**
 
@@ -141,9 +143,11 @@ if (!file.exists("htmls/")){
 
 My next goal was to obtain all of the "Fundamentals" tables from each stock subpage, thus I needed to **generate the subpage URL for each ticker and obtain the entire table as a list, then incrementally append it as a row to a data frame**. Knowing this, I did exactly what I needed to do and pasted together a root URL and all of the ticker numbers, which was sufficient to obtain the pages.
 
-When I first started looking through those pages and extracting the information I needed, I ran across a problem that forced me to rethink my strategy. The issue was that if I tried to request each of the almost 4,000 subpages and tables, I received a timeout response. As a result, **I downloaded all of the subpages and iterated over those local files, which were more efficient to have on hand**. If the page for a ticker has already been downloaded locally, the written for loop avoids the download; otherwise, it obtains it from the parsed URL.
+When I first started looking through those pages and extracting the information I needed, I ran across a problem that forced me to rethink my strategy. The issue was that if I tried to request each of the almost 4,000 subpages and tables, I received a timeout response. As a result, **I downloaded all of the subpages and iterated over those local files, which were more efficient to have on hand**. If the page for a ticker has already been downloaded locally, the written for loop skips the download; otherwise, it obtains it from the parsed URL.
 
-Another potential difficulty was that the stocks listed on the **NYSE** are updated often (new IPOs are announced on a daily basis), therefore I needed a script to add the missing fundamental tables based on the scraped list of tickers. Please note that while new stock is added incrementally, so we don't have to update every record when executing the script; however, previously downloaded stock pages become stale, and we must download them again to update them. One disadvantage of the gradual upgrade is that it saves time rather than having to download all of the pages from scratch, which takes hours.
+Another potential difficulty was that the stocks listed on the **NYSE** are updated very often (new IPOs are announced on a daily basis), therefore I needed a script to add the missing fundamental tables based on the scraped list of tickers. 
+
+*Please note that while new stock is added incrementally, so we don't have to update every record when executing the script; however, previously downloaded stock pages become stale, and we must download them again to update them. One disadvantage of the gradual upgrade is that it saves time rather than having to download all of the pages from scratch, which takes hours.*
 
 ```{r, message=F, warning=F, eval = FALSE, echo=F}
 
@@ -304,7 +308,7 @@ nyse_clean %>% select(c('sector', 'market_cap')) %>%
 
 ### Industry Gains
 
-Second, I was wondering as to which industries are now outperforming others in terms of gains. Overall, the **Telecommunications industry** increased by over 15%, which was more than double the EDP services, which came in second place, closely followed by Electronic Distribution**. Again, these displays show how COVID has changed daily life on the island.
+Second, I was wondering as to which industries are now outperforming others in terms of gains. Overall, the **Telecommunications industry** increased by over 15%, which was more than double the EDP services, which came in second place, closely followed by Electronic Distribution**. Again, these displays show how COVID has changed our economy and perspectives.
 
 <br>
 
@@ -315,7 +319,7 @@ nyse_clean %>% filter(!is.na(industry)) %>%
   arrange(desc(change_percent)) %>%
   slice(1:5) %>%
   ggplot() +
-    geom_bar(aes(reorder(industry, change_percent), change_percent), fill = "firebrick2", color = "firebrick4", stat = "summary", fun = "mean") +
+    geom_bar(aes(reorder(industry, change_percent), change_percent), fill = "slateblue2", color = "slateblue4", stat = "summary", fun = "mean") +
   theme_bw() +
   coord_flip() +
   labs(title = "Best Performing Industries",
@@ -354,7 +358,7 @@ ggplot(aes(fill=direction, x=sector)) +
 
 ### Most Active Stocks
 
-In terms of individual stock comparisons, I put together a chart that shows the stocks with the highest activity on the current day. **We can detect Ford (F) and AMC Entertainment (AMC) among the leaders, which is unsurprising given that these are low-cost, Reddit-fueled "meme-stocks." **Also, AT&T (T) and Pfizer (PFE)** appear there, both of which are fueled by the pandemic's present need for these items.
+In terms of individual stock comparisons, I put together a chart that shows the stocks with the highest activity on the current day. **We can detect Ford (F) and AMC Entertainment (AMC) among the leaders, which is unsurprising given that these are low-cost, Reddit-fueled "meme-stocks." **Also, AT&T (T) and Pfizer (PFE)** appear there, both of which are fueled by the pandemic's present need for the services of these companies.
 
 ```{r}
 
@@ -363,7 +367,7 @@ nyse_clean %>%
   arrange(desc(volume)) %>%
   slice(1:5) %>%
   ggplot() +
-    geom_col(aes(reorder(code, volume), volume), fill = "firebrick2", color = "firebrick4") +
+    geom_col(aes(reorder(code, volume), volume), fill = "slateblue2", color = "slateblue4") +
   theme_bw() +
   coord_flip() +
   labs(title = "Stocks with the most volume (M)",
@@ -385,7 +389,7 @@ nyse_clean %>%
   arrange(desc(divyield)) %>%
   slice(1:5) %>%
   ggplot() +
-    geom_col(aes(reorder(code, divyield), divyield), fill = "firebrick2", color = "firebrick4") +
+    geom_col(aes(reorder(code, divyield), divyield), fill = "slateblue2", color = "slateblue4") +
   theme_bw() +
   coord_flip() +
   labs(title = "Stocks with the largest divident yields",
@@ -422,8 +426,6 @@ nyse_clean %>%
 <br>
 
 Moving on to the losers of the day, **Navios Maritime Holdings Inc. (NM), a company responsible for overseas logistics, closed at the bell with a loss of more than 25%, followed by Planet Labs (a result of a SPAC initiative from dMY Technologies) and Oscar Health (OSCR), a private insurance company**. We can infer patterns that are sensitively determined by the restrictions and hardship imposed by the pandemic's upward trending infection rates.
-
-<br>
 
 ```{r}
 
